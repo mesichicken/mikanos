@@ -32,6 +32,7 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
+#include "timer.hpp"
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
@@ -62,7 +63,11 @@ unsigned int mouse_layer_id;
 // マウスカーソルの位置を更新する
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
   layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
+  StartLAPICTimer();
   layer_manager->Draw();
+  auto elapsed = LAPICTimerElapsed();
+  StopLAPICTimer();
+  printk("MouseObserver: elapsed = %u\n", elapsed);
 }
 
 // USBポートの制御モードを切り替える
@@ -132,6 +137,8 @@ extern "C" void KernelMainNewStack(
   printk("Welcome to MikanOS!\n");
 
   SetLogLevel(kWarn);
+
+  InitializeLAPICTimer(); // LAPICタイマの初期化
 
   SetupSegments(); // この関数は、GDTを初期化し、セグメントを設定する
 
