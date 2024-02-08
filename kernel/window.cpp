@@ -31,7 +31,6 @@ void Window::DrawTo(PixelWriter& writer, Vector2D<int> position) {
 void Window::SetTransparentColor(std::optional<PixelColor> c) {
   transparent_color_ = c;
 }
-// #@@range_end(window_settc)
 
 Window::WindowWriter* Window::Writer() {
   return &writer_;

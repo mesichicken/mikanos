@@ -6,7 +6,6 @@
 
 #include "graphics.hpp"
 
-// RGB形式でピクセルを描画するクラス
 void RGBResv8BitPerColorPixelWriter::Write(int x, int y, const PixelColor& c) {
   auto p = PixelAt(x, y);
   p[0] = c.r;
@@ -14,7 +13,6 @@ void RGBResv8BitPerColorPixelWriter::Write(int x, int y, const PixelColor& c) {
   p[2] = c.b;
 }
 
-// BGR形式でピクセルを描画するクラス
 void BGRResv8BitPerColorPixelWriter::Write(int x, int y, const PixelColor& c) {
   auto p = PixelAt(x, y);
   p[0] = c.b;
@@ -22,7 +20,6 @@ void BGRResv8BitPerColorPixelWriter::Write(int x, int y, const PixelColor& c) {
   p[2] = c.r;
 }
 
-// 長方形の枠を描画する
 void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
   for (int dx = 0; dx < size.x; ++dx) {
@@ -35,7 +32,6 @@ void DrawRectangle(PixelWriter& writer, const Vector2D<int>& pos,
   }
 }
 
-// 長方形を塗りつぶす
 void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos,
                    const Vector2D<int>& size, const PixelColor& c) {
   for (int dy = 0; dy < size.y; ++dy) {
@@ -45,7 +41,6 @@ void FillRectangle(PixelWriter& writer, const Vector2D<int>& pos,
   }
 }
 
-// デスクトップの描画
 void DrawDesktop(PixelWriter& writer) {
   const auto width = writer.Width();
   const auto height = writer.Height();

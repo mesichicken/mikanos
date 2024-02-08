@@ -34,6 +34,7 @@ void Layer::DrawTo(PixelWriter& writer) const {
   }
 }
 
+
 void LayerManager::SetWriter(PixelWriter* writer) {
   writer_ = writer;
 }

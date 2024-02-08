@@ -3,14 +3,9 @@
 #include "asmfunc.h"
 
 namespace {
-  // グローバルディスクリプタテーブル(GDT)の定義
-  // GDTは、セグメントディスクリプタの配列
   std::array<SegmentDescriptor, 3> gdt;
 }
 
-// コードセグメントの設定を行う関数。
-// この関数は、セグメントディスクリプタを引数に取り、
-// そのディスクリプタをコードセグメントとして初期化する。
 void SetCodeSegment(SegmentDescriptor& desc,
                     DescriptorType type,
                     unsigned int descriptor_privilege_level,
@@ -35,8 +30,6 @@ void SetCodeSegment(SegmentDescriptor& desc,
   desc.bits.granularity = 1;
 }
 
-// データセグメントの設定を行う関数。
-// コードセグメントと似ているが、ロングモードとデフォルトオペレーションサイズが異なる。
 void SetDataSegment(SegmentDescriptor& desc,
                     DescriptorType type,
                     unsigned int descriptor_privilege_level,
@@ -47,8 +40,6 @@ void SetDataSegment(SegmentDescriptor& desc,
   desc.bits.default_operation_size = 1; // 32-bit stack segment
 }
 
-// セグメントの設定を行う関数
-// この関数は、GDTを初期化し、セグメントを設定する
 void SetupSegments() {
   gdt[0].data = 0;
   SetCodeSegment(gdt[1], DescriptorType::kExecuteRead, 0, 0, 0xfffff);

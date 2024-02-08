@@ -30,4 +30,5 @@ interrupt.o: interrupt.cpp interrupt.hpp \
   /home/vscode/osbook/devenv/x86_64-elf/include/assert.h \
   /home/vscode/osbook/devenv/x86_64-elf/include/_ansi.h \
   /home/vscode/osbook/devenv/x86_64-elf/include/c++/v1/functional \
-  /home/vscode/osbook/devenv/x86_64-elf/include/c++/v1/bit
+  /home/vscode/osbook/devenv/x86_64-elf/include/c++/v1/bit \
+  x86_descriptor.hpp

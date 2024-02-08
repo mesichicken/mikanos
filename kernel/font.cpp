@@ -18,7 +18,6 @@ const uint8_t* GetFont(char c) {
   return &_binary_hankaku_bin_start + index;
 }
 
-// フォントを描画する
 void WriteAscii(PixelWriter& writer, int x, int y, char c, const PixelColor& color) {
   const uint8_t* font = GetFont(c);
   if (font == nullptr) {
@@ -33,7 +32,6 @@ void WriteAscii(PixelWriter& writer, int x, int y, char c, const PixelColor& col
   }
 }
 
-// 文字列を描画する
 void WriteString(PixelWriter& writer, int x, int y, const char* s, const PixelColor& color) {
   for (int i = 0; s[i] != '\0'; ++i) {
     WriteAscii(writer, x + 8 * i, y, s[i], color);

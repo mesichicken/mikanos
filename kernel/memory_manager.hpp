@@ -25,7 +25,8 @@ namespace {
   }
 }
 
-static const auto kBytesPerFrame{4_KiB}; // 物理メモリフレーム1つの大きさ
+/** @brief 物理メモリフレーム 1 つの大きさ（バイト） */
+static const auto kBytesPerFrame{4_KiB};
 
 class FrameID {
  public:
@@ -46,7 +47,6 @@ static const FrameID kNullFrame{std::numeric_limits<size_t>::max()};
  * alloc_map[n] の m ビット目が対応する物理アドレスは次の式で求まる：
  *   kFrameBytes * (n * kBitsPerMapLine + m)
  */
-// #@@range_begin(bitmap_memory_manager)
 class BitmapMemoryManager {
  public:
   /** @brief このメモリ管理クラスで扱える最大の物理メモリ量（バイト） */

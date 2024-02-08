@@ -32,15 +32,17 @@
 #include "memory_manager.hpp"
 #include "window.hpp"
 #include "layer.hpp"
+
+// #@@range_begin(include_timer)
 #include "timer.hpp"
+// #@@range_end(include_timer)
 
 char pixel_writer_buf[sizeof(RGBResv8BitPerColorPixelWriter)];
 PixelWriter* pixel_writer;
 
 char console_buf[sizeof(Console)];
-Console* console;;
+Console* console;
 
-// ログ出力用の関数
 int printk(const char* format, ...) {
   va_list ap;
   int result;
@@ -54,13 +56,12 @@ int printk(const char* format, ...) {
   return result;
 }
 
-// メモリマネージャのインスタンスを格納する変数
 char memory_manager_buf[sizeof(BitmapMemoryManager)];
 BitmapMemoryManager* memory_manager;
 
 unsigned int mouse_layer_id;
 
-// マウスカーソルの位置を更新する
+// #@@range_begin(mouse_observer)
 void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
   layer_manager->MoveRelative(mouse_layer_id, {displacement_x, displacement_y});
   StartLAPICTimer();
@@ -69,12 +70,13 @@ void MouseObserver(int8_t displacement_x, int8_t displacement_y) {
   StopLAPICTimer();
   printk("MouseObserver: elapsed = %u\n", elapsed);
 }
+// #@@range_end(mouse_observer)
 
-// USBポートの制御モードを切り替える
 void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
   bool intel_ehc_exist = false;
   for (int i = 0; i < pci::num_device; ++i) {
-    if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u)) {
+    if (pci::devices[i].class_code.Match(0x0cu, 0x03u, 0x20u) /* EHCI */ &&
+        0x8086 == pci::ReadVendorId(pci::devices[i])) {
       intel_ehc_exist = true;
       break;
     }
@@ -83,15 +85,14 @@ void SwitchEhci2Xhci(const pci::Device& xhc_dev) {
     return;
   }
 
-  uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc);
-  pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports);
-  uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4);
-  pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports);
+  uint32_t superspeed_ports = pci::ReadConfReg(xhc_dev, 0xdc); // USB3PRM
+  pci::WriteConfReg(xhc_dev, 0xd8, superspeed_ports); // USB3_PSSEN
+  uint32_t ehci2xhci_ports = pci::ReadConfReg(xhc_dev, 0xd4); // XUSB2PRM
+  pci::WriteConfReg(xhc_dev, 0xd0, ehci2xhci_ports); // XUSB2PR
   Log(kDebug, "SwitchEhci2Xhci: SS = %02, xHCI = %02x\n",
-         superspeed_ports, ehci2xhci_ports);
+      superspeed_ports, ehci2xhci_ports);
 }
 
-// xHCI用の割り込みハンドラを定義
 usb::xhci::Controller* xhc;
 
 struct Message {
@@ -102,50 +103,50 @@ struct Message {
 
 ArrayQueue<Message>* main_queue;
 
-__attribute__((interrupt)) // 直後に定義される関数が割り込みハンドラであることを示す
+__attribute__((interrupt))
 void IntHandlerXHCI(InterruptFrame* frame) {
   main_queue->Push(Message{Message::kInterruptXHCI});
   NotifyEndOfInterrupt();
 }
 
 alignas(16) uint8_t kernel_main_stack[1024 * 1024];
-// カーネルのメイン関数。フレームバッファの設定に基づいてピクセルライターを初期化し、
-// 画面全体を白色で塗りつぶした後、左上の一部を緑色で塗りつぶします。
+
 extern "C" void KernelMainNewStack(
     const FrameBufferConfig& frame_buffer_config_ref,
     const MemoryMap& memory_map_ref) {
   FrameBufferConfig frame_buffer_config{frame_buffer_config_ref};
   MemoryMap memory_map{memory_map_ref};
 
-
   switch (frame_buffer_config.pixel_format) {
     case kPixelRGBResv8BitPerColor:
       pixel_writer = new(pixel_writer_buf)
-          RGBResv8BitPerColorPixelWriter{frame_buffer_config};
+        RGBResv8BitPerColorPixelWriter{frame_buffer_config};
       break;
     case kPixelBGRResv8BitPerColor:
       pixel_writer = new(pixel_writer_buf)
-          BGRResv8BitPerColorPixelWriter{frame_buffer_config};
+        BGRResv8BitPerColorPixelWriter{frame_buffer_config};
       break;
   }
 
-  // デスクトップの背景を描画
   DrawDesktop(*pixel_writer);
 
-  console = new(console_buf) Console{kDesktopFGColor, kDesktopBGColor};
+  console = new(console_buf) Console{
+    kDesktopFGColor, kDesktopBGColor
+  };
   console->SetWriter(pixel_writer);
+  // #@@range_begin(initialize_lapic_timer)
   printk("Welcome to MikanOS!\n");
-
   SetLogLevel(kWarn);
 
-  InitializeLAPICTimer(); // LAPICタイマの初期化
+  InitializeLAPICTimer();
+  // #@@range_end(initialize_lapic_timer)
 
-  SetupSegments(); // この関数は、GDTを初期化し、セグメントを設定する
+  SetupSegments();
 
-  const uint16_t kernel_cs = 1 << 3; // カーネルコードセグメントのセグメントセレクタ
-  const uint16_t kernel_ss = 2 << 3; // カーネルデータセグメントのセグメントセレクタ
-  SetDSAll(0); // セグメントレジスタの値を0に設定
-  SetCSSS(kernel_cs, kernel_ss); // セグメントレジスタの値を設定
+  const uint16_t kernel_cs = 1 << 3;
+  const uint16_t kernel_ss = 2 << 3;
+  SetDSAll(0);
+  SetCSSS(kernel_cs, kernel_ss);
 
   SetupIdentityPageTable();
 
@@ -153,7 +154,6 @@ extern "C" void KernelMainNewStack(
 
   const auto memory_map_base = reinterpret_cast<uintptr_t>(memory_map.buffer);
   uintptr_t available_end = 0;
-  // メモリマップの各エントリを確認し、使用可能なメモリ領域をメモリマネージャに登録
   for (uintptr_t iter = memory_map_base;
        iter < memory_map_base + memory_map.map_size;
        iter += memory_map.descriptor_size) {
@@ -176,29 +176,26 @@ extern "C" void KernelMainNewStack(
   }
   memory_manager->SetMemoryRange(FrameID{1}, FrameID{available_end / kBytesPerFrame});
 
-  // メモリマネージャの初期化
   if (auto err = InitializeHeap(*memory_manager)) {
     Log(kError, "failed to allocate pages: %s at %s:%d\n",
         err.Name(), err.File(), err.Line());
     exit(1);
   }
 
-  // 割り込みディスクリプタテーブル(IDT)を初期化
   std::array<Message, 32> main_queue_data;
   ArrayQueue<Message> main_queue{main_queue_data};
   ::main_queue = &main_queue;
 
   auto err = pci::ScanAllBus();
-  printk("ScanAllBus: %s\n", err.Name());
   Log(kDebug, "ScanAllBus: %s\n", err.Name());
 
   for (int i = 0; i < pci::num_device; ++i) {
     const auto& dev = pci::devices[i];
-    auto vendor_id = pci::ReadVendorId(dev.bus, dev.device, dev.function);
+    auto vendor_id = pci::ReadVendorId(dev);
     auto class_code = pci::ReadClassCode(dev.bus, dev.device, dev.function);
     Log(kDebug, "%d.%d.%d: vend %04x, class %08x, head %02x\n",
-           dev.bus, dev.device, dev.function,
-           vendor_id, class_code, dev.header_type);
+        dev.bus, dev.device, dev.function,
+        vendor_id, class_code, dev.header_type);
   }
 
   // Intel 製を優先して xHC を探す
@@ -218,28 +215,19 @@ extern "C" void KernelMainNewStack(
         xhc_dev->bus, xhc_dev->device, xhc_dev->function);
   }
 
-  // 割り込みベクタ番号0x40番を指定してIDTを設定
-  SetIDTEntry(
-    idt[InterruptVector::kXHCI],
-    MakeIDTAttr(DescriptorType::kInterruptGate, 0),
-    reinterpret_cast<uint64_t>(IntHandlerXHCI),
-    kernel_cs
-  );
+  SetIDTEntry(idt[InterruptVector::kXHCI], MakeIDTAttr(DescriptorType::kInterruptGate, 0),
+              reinterpret_cast<uint64_t>(IntHandlerXHCI), kernel_cs);
   LoadIDT(sizeof(idt) - 1, reinterpret_cast<uintptr_t>(&idt[0]));
 
-  // MSI割り込みを有効化する
-  const uint8_t bsp_local_apic_id = *reinterpret_cast<const uint32_t*>(0xfee00020) >> 24; // ローカルAPICのIDを取得
+  const uint8_t bsp_local_apic_id =
+    *reinterpret_cast<const uint32_t*>(0xfee00020) >> 24;
   pci::ConfigureMSIFixedDestination(
-      *xhc_dev,
-      bsp_local_apic_id,
-      pci::MSITriggerMode::kLevel,
-      pci::MSIDeliveryMode::kFixed,
-      InterruptVector::kXHCI, 0
-  );
+      *xhc_dev, bsp_local_apic_id,
+      pci::MSITriggerMode::kLevel, pci::MSIDeliveryMode::kFixed,
+      InterruptVector::kXHCI, 0);
 
-  // BAR0(ベースアドレスレジスタ)を読み取る
   const WithError<uint64_t> xhc_bar = pci::ReadBar(*xhc_dev, 0);
-  Log(kDebug, "Reader: %s\n", xhc_bar.error.Name());
+  Log(kDebug, "ReadBar: %s\n", xhc_bar.error.Name());
   const uint64_t xhc_mmio_base = xhc_bar.value & ~static_cast<uint64_t>(0xf);
   Log(kDebug, "xHC mmio_base = %08lx\n", xhc_mmio_base);
 

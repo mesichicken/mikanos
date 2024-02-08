@@ -5,29 +5,28 @@
  */
 
 #include "pci.hpp"
+
 #include "asmfunc.h"
 
 namespace {
   using namespace pci;
 
-  /** @brief CONFIG_ADDRESS 用の32ビット整数を生成する */
-  uint32_t MakeAddress(uint8_t bus, uint8_t device, uint8_t function, uint8_t reg_addr) {
-    // 31: Enable bit
-    // 30-24: Reserved
-    // 23-16: Bus number
-    // 15-11: Device number
-    // 10-8: Function number
-    // 7-0: Register number
+  /** @brief CONFIG_ADDRESS 用の 32 ビット整数を生成する */
+  uint32_t MakeAddress(uint8_t bus, uint8_t device,
+                       uint8_t function, uint8_t reg_addr) {
     auto shl = [](uint32_t x, unsigned int bits) {
-      return x << bits;
+        return x << bits;
     };
 
-    return shl(1, 31) | shl(bus, 16) | shl(device, 11) | shl(function, 8) | (reg_addr & 0xfcu);
+    return shl(1, 31)  // enable bit
+        | shl(bus, 16)
+        | shl(device, 11)
+        | shl(function, 8)
+        | (reg_addr & 0xfcu);
   }
 
   /** @brief devices[num_device] に情報を書き込み num_device をインクリメントする． */
   Error AddDevice(const Device& device) {
-    // PCIデバイスの数が多すぎてdevicesに入りきらない場合
     if (num_device == devices.size()) {
       return MAKE_ERROR(Error::kFull);
     }
@@ -35,11 +34,10 @@ namespace {
     devices[num_device] = device;
     ++num_device;
     return MAKE_ERROR(Error::kSuccess);
-  };
+  }
 
   Error ScanBus(uint8_t bus);
 
-  // #@@range_begin(scan_function)
   /** @brief 指定のファンクションを devices に追加する．
    * もし PCI-PCI ブリッジなら，セカンダリバスに対し ScanBus を実行する
    */
@@ -61,8 +59,8 @@ namespace {
     return MAKE_ERROR(Error::kSuccess);
   }
 
-  /** @brief 指定のバス番号の指定のデバイスをスキャンする．
-   * 有効なデバイスを見つけたら ScanFunction を実行する．
+  /** @brief 指定のデバイス番号の各ファンクションをスキャンする．
+   * 有効なファンクションを見つけたら ScanFunction を実行する．
    */
   Error ScanDevice(uint8_t bus, uint8_t device) {
     if (auto err = ScanFunction(bus, device, 0)) {
@@ -180,40 +178,33 @@ namespace {
 }
 
 namespace pci {
-  /** @brief CONFIG_ADDRESS に書き込む */
   void WriteAddress(uint32_t address) {
     IoOut32(kConfigAddress, address);
   }
 
-  /** @brief CONFIG_DATA に書き込む */
   void WriteData(uint32_t value) {
     IoOut32(kConfigData, value);
   }
 
-  /** @brief CONFIG_DATA を読み出す */
   uint32_t ReadData() {
     return IoIn32(kConfigData);
   }
 
-  /** @brief ベンダIDを読み出す */
   uint16_t ReadVendorId(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x00));
     return ReadData() & 0xffffu;
   }
 
-  /** @brief デバイスIDを読み出す */
   uint16_t ReadDeviceId(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x00));
     return ReadData() >> 16;
   }
 
-  /** @brief ヘッダタイプを読み出す */
   uint8_t ReadHeaderType(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x0c));
     return (ReadData() >> 16) & 0xffu;
   }
 
-  /** @brief クラスコードを読み出す */
   ClassCode ReadClassCode(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x08));
     auto reg = ReadData();
@@ -224,31 +215,28 @@ namespace pci {
     return cc;
   }
 
-  /** @brief サブクラスコードを読み出す */
   uint32_t ReadBusNumbers(uint8_t bus, uint8_t device, uint8_t function) {
     WriteAddress(MakeAddress(bus, device, function, 0x18));
     return ReadData();
   }
 
-  /** @brief バス番号を読み出す */
   bool IsSingleFunctionDevice(uint8_t header_type) {
     return (header_type & 0x80u) == 0;
   }
 
-  /** @brief バスをスキャンする */
   Error ScanAllBus() {
     num_device = 0;
 
-    auto header_type = ReadHeaderType(0, 0, 0); // ヘッダタイプを読み出す
-    if (IsSingleFunctionDevice(header_type)) { // 単一ファンクションデバイスの場合
+    auto header_type = ReadHeaderType(0, 0, 0);
+    if (IsSingleFunctionDevice(header_type)) {
       return ScanBus(0);
     }
 
-    for (uint8_t function = 0; function < 8; ++function) { // ファンクションをループ
-      if (ReadVendorId(0, 0, function) == 0xffffu) { // ベンダIDが0xffffの場合
-        continue; // 次のファンクションへ
+    for (uint8_t function = 0; function < 8; ++function) {
+      if (ReadVendorId(0, 0, function) == 0xffffu) {
+        continue;
       }
-      if (auto err = ScanBus(function)) { // バスをスキャン
+      if (auto err = ScanBus(function)) {
         return err;
       }
     }
@@ -292,11 +280,12 @@ namespace pci {
 
   CapabilityHeader ReadCapabilityHeader(const Device& dev, uint8_t addr) {
     CapabilityHeader header;
-    header.data = ReadConfReg(dev, addr);
+    header.data = pci::ReadConfReg(dev, addr);
     return header;
   }
 
-  Error ConfigureMSI(const Device& dev, uint32_t msg_addr, uint32_t msg_data, unsigned int num_vector_exponent) {
+  Error ConfigureMSI(const Device& dev, uint32_t msg_addr, uint32_t msg_data,
+                     unsigned int num_vector_exponent) {
     uint8_t cap_addr = ReadConfReg(dev, 0x34) & 0xffu;
     uint8_t msi_cap_addr = 0, msix_cap_addr = 0;
     while (cap_addr != 0) {
@@ -310,11 +299,9 @@ namespace pci {
     }
 
     if (msi_cap_addr) {
-      return ConfigureMSIRegister(
-          dev, msi_cap_addr, msg_addr, msg_data, num_vector_exponent);
+      return ConfigureMSIRegister(dev, msi_cap_addr, msg_addr, msg_data, num_vector_exponent);
     } else if (msix_cap_addr) {
-      return ConfigureMSIXRegister(
-          dev, msix_cap_addr, msg_addr, msg_data, num_vector_exponent);
+      return ConfigureMSIXRegister(dev, msix_cap_addr, msg_addr, msg_data, num_vector_exponent);
     }
     return MAKE_ERROR(Error::kNoPCIMSI);
   }

@@ -1,15 +1,14 @@
 #pragma once
+
 #include <stdint.h>
 
-// メモリマップ構造体の定義
-// UEFIからシステムのメモリマップを取得するために使用する
 struct MemoryMap {
-  unsigned long long buffer_size; // バッファのサイズ
-  void* buffer; // メモリマップを格納するバッファ
-  unsigned long long map_size; // メモリマップ全体のサイズ
-  unsigned long long map_key; // メモリマップのキー
-  unsigned long long descriptor_size; // メモリディスクリプタのサイズ
-  uint32_t descriptor_version; // メモリディスクリプタのバージョン
+  unsigned long long buffer_size;
+  void* buffer;
+  unsigned long long map_size;
+  unsigned long long map_key;
+  unsigned long long descriptor_size;
+  uint32_t descriptor_version;
 };
 
 struct MemoryDescriptor {
@@ -48,12 +47,12 @@ inline bool operator==(MemoryType lhs, uint32_t rhs) {
   return rhs == lhs;
 }
 
-// メモリタイプが使用可能かどうかを判定する
 inline bool IsAvailable(MemoryType memory_type) {
-  return memory_type == MemoryType::kEfiBootServicesCode ||
-         memory_type == MemoryType::kEfiBootServicesData ||
-         memory_type == MemoryType::kEfiConventionalMemory;
+  return
+    memory_type == MemoryType::kEfiBootServicesCode ||
+    memory_type == MemoryType::kEfiBootServicesData ||
+    memory_type == MemoryType::kEfiConventionalMemory;
 }
 
-const int kUEFIPageSize = 4096; // UEFIのページサイズ
+const int kUEFIPageSize = 4096;
 #endif
